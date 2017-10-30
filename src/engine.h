@@ -23,7 +23,7 @@ class Engine
 	float objectPitch;
 	ad::Scalar dtMult;
 
-	FieldRenderer *fieldRenderer;
+//	FieldRenderer *fieldRenderer;
 	CurrentLineVecField *field;
 	ParticleSimulation *pSim;
 	Tweaks *tweakSys;

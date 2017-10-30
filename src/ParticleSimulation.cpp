@@ -134,26 +134,12 @@ void ParticleSimulation::Recycle( int index )
 extern ad::Scalar gCurrent; // current (current per strand * strands)
 extern ad::Scalar gChargePerMeterOfWire;
 
+ad::Scalar gElectronDensityPerParticle = 1.0;
+
 void ParticleSimulation::Update(float dt)
 {
 	// We're counting real-time as nanoseconds here!
 	dt *= 1.0e-9f;
-
-
-// 	static int counter = 0;
-// 	counter++;
-// 	{
-// 		static const int NUM_REFRESH_PER_FRAME = 100;
-// 		if (counter * (NUM_REFRESH_PER_FRAME+1) >= NUM_PARTICLES ) counter = 0;
-// 		for (int i = 0; i < NUM_REFRESH_PER_FRAME; i++)
-// 		{
-// 			int index = (counter * NUM_REFRESH_PER_FRAME + i) % NUM_PARTICLES;
-// 			Recycle(index);
-// 		}
-// 		
-// 		cudaMemcpyAsync( &m_deviceData.particlePos[0][index], &m_particlePos[index], sizeof(float4), cudaMemcpyHostToDevice, stream2);
-// 		cudaMemcpyAsync( &m_deviceData.particleVel[0][index], &m_particleVel[index], sizeof(float3), cudaMemcpyHostToDevice, stream2);
-// 	}
 
 	cudaError err;
 
@@ -161,7 +147,7 @@ void ParticleSimulation::Update(float dt)
 
 	cudaDeviceSynchronize();
 
-	bool updated = IntegrateNBodySystem( m_deviceData, NUM_PARTICLES, (float)gCurrent, (float)gChargePerMeterOfWire, /*(float)gElectronDensityPerParticle,*/ outState, dt, stream1);
+	bool updated = IntegrateNBodySystem( m_deviceData, NUM_PARTICLES, (float)gCurrent, (float)gChargePerMeterOfWire, (float)gElectronDensityPerParticle, outState, dt, stream1);
 	if (updated) {
 		cudaMemcpyAsync( m_particlePos, m_deviceData.particlePos[m_deviceData.state], m_numBlocks * NUM_THREADS_PER_BLOCK * sizeof(float4), cudaMemcpyDeviceToHost, stream2);
 		m_deviceData.state = outState;

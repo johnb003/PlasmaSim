@@ -109,7 +109,7 @@ struct FieldParm
 	float currentAmperes;
 	float chargePerPointOnWire;
 	float mass;
-//	float electronParticleDensity;
+	float electronParticleDensity;
 };
 
 __device__ Derivative operator*(float f, const Derivative &rhs)
@@ -122,7 +122,6 @@ __device__ Derivative operator+(const Derivative &lhs, const Derivative &rhs)
 	return Derivative(lhs.dPos + rhs.dPos, lhs.dVel+rhs.dVel);
 }
 
-__device__ void GetFields( const float3 &pos, const FieldParm &fieldParms, float3 &BField, float3 &EField ) 
 // TODO: Explore rewriting the math for the distance to line computation using the fact that:
 //
 // Alternative Math:
@@ -148,6 +147,7 @@ __device__ void GetFields( const float3 &pos, const FieldParm &fieldParms, float
 // 1/z * (dB / dot(PB, PB) - dA / dot(PA, PA));
 // ... I'm trailing off here, dB and dA aren't available without what we had before.... Worth it???
 
+__device__ void GetFields( const float3 &pos, FieldParm &fieldParms, float3 &BField, float3 &EField ) 
 {
 	const float mu = 1e-7;	// magnetic permeability of free space
 	const float Ke = 8987551787.3681764; // C^2E-7
@@ -310,7 +310,7 @@ __device__ void GetFields( const float3 &pos, const FieldParm &fieldParms, float
 	}
 }
 
-__device__ Derivative SampleDerivative(float dt, const State &sampleState, const FieldParm &fieldParms)
+__device__ Derivative SampleDerivative(float dt, const State &sampleState, FieldParm &fieldParms)
 {
 	float3 BField, EField;
 	GetFields(sampleState.pos, fieldParms, BField, EField);
@@ -331,7 +331,7 @@ __device__ State EulerStep(float dt, const State &initialState, const Derivative
 	return State(initialState.pos + dt*initialDerivative.dPos, initialState.vel + dt*initialDerivative.dVel);
 }
 
-__device__ void RK45Integrate(const State &initialState, const FieldParm &fieldParms, float dt, float3 &outPos, float3 &outVel, float &errorOut)
+__device__ void RK45Integrate(const State &initialState, FieldParm &fieldParms, float dt, float3 &outPos, float3 &outVel, float &errorOut)
 {
 	//const float C1=0.0f;
 	static const float C2 = 0.25f;
@@ -383,7 +383,7 @@ __global__ void	integrateBodies(
 	const int numBodies,
 	const float currentAmperes,
 	const float chargePerPointOnWire,
-//	const float electronParticleDensity,
+	const float electronParticleDensity,
 	float dt,
 	float4 *outPosBuff,
 	float3 *outVelBuff,
@@ -408,7 +408,7 @@ __global__ void	integrateBodies(
 	fieldParm.mass = 9.10938188e-31f;
 	fieldParm.pairPoints = pairPoints;
 	fieldParm.numPairs = numPairPoints;
-//	fieldParm.electronParticleDensity = electronParticleDensity;
+	fieldParm.electronParticleDensity = electronParticleDensity;
 
 	float errorApprox;
 	RK45Integrate(State(make_float3(pos4.x, pos4.y, pos4.z), vel), fieldParm, dt*pos4.w, outPos, outVel, errorApprox);
@@ -425,7 +425,7 @@ static float inflicted = 1.0f;
 int frame = 0;
 
 bool IntegrateNBodySystem( DeviceData &deviceData, int numBodies, float currentAmperes, float chargePerPointOnWire,
-	/*float electronParticleDensity, */int outputIndex, float dt, cudaStream_t stream)
+	float electronParticleDensity, int outputIndex, float dt, cudaStream_t stream)
 {
 	int numThreadsPerBlock = 64;
 	static const int NUM_RETRIES = 10;
@@ -449,7 +449,7 @@ bool IntegrateNBodySystem( DeviceData &deviceData, int numBodies, float currentA
 			numBodies,
 			currentAmperes,
 			chargePerPointOnWire,
-			// electronParticleDensity,
+			electronParticleDensity,
 			dt*inflicted,
 			deviceData.particlePos[outputIndex],
 			deviceData.particleVel[outputIndex],

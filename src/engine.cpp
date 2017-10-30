@@ -38,6 +38,7 @@ using ad::Vec4;
 //static float l0_position[] = {-1.0f, -0.3f, 1.0f, 0.0f};
 static float l0_position[] = {0.0f, 0.0f, 1.0f, 0.0f};
 static float l0_ambient[] =  {0.2f, 0.2f, 0.2f, 1.0f};
+extern ad::Scalar gElectronDensityPerParticle;
 
 Engine::Engine()
 {
@@ -115,6 +116,7 @@ Engine::Engine()
  	tweakSys->AddTweak("Dt Multiplier", &dtMult, 0.00001, 100000, Tweaks::ScaleStyle_Exponential); 
  	tweakSys->AddTweak("Current", &gCurrent, 0.000001, 1e20, Tweaks::ScaleStyle_Exponential); 
  	tweakSys->AddTweak("Charge", &gChargePerMeterOfWire, 1e-40, 1e10, Tweaks::ScaleStyle_Exponential); 
+ 	tweakSys->AddTweak("ParticleDensity", &gElectronDensityPerParticle, 1, 1e40, Tweaks::ScaleStyle_Exponential);
 
 
 	field = new CurrentLineVecField();
