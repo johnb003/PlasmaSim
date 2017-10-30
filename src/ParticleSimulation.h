@@ -15,7 +15,10 @@ public:
 	float *integrationStepError;
 	float3 *linePairPos;
 	int numPointsInPairs;
-	int state;
+	// we're using double buffers, so the inputs are preserved.
+	// this allows us to write outputs, and then if it wasn't good
+	// we can try again without destruction of the device data.
+	int state;  // Current Input Index
 };
 
 class ParticleSimulation
@@ -52,6 +55,6 @@ public:
 // Cuda implementation
 //void IntegrateNBodySystem(DeviceData *deviceData, float currentAmperes, float chargePerPointOnWire, float dt, int numBodies);
 // void IntegrateNBodySystem(const float4 *position, const float3 *velocity, const float3 *linePairs, int numPointsInPairs, int numBodies, float currentAmperes, float chargePerPointOnWire, float dt, cudaStream_t stream, float4 *outPos, float3 *outVel, float4 *outPosTmp, float3 *outVelTmp);
-void IntegrateNBodySystem( DeviceData &deviceData, int numBodies, float currentAmperes, float chargePerPointOnWire, int outputIndex, float dt, cudaStream_t stream);
+bool IntegrateNBodySystem( DeviceData &deviceData, int numBodies, float currentAmperes, float chargePerPointOnWire, int outputIndex, float dt, cudaStream_t stream);
 
 #endif // PARTICLE_SIMULATION_H

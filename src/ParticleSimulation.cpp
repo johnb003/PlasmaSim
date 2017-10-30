@@ -29,6 +29,7 @@ ParticleSimulation::ParticleSimulation(CurrentLineVecField *vectorField)
 
 	// non-paged memory for faster copy back
 	cudaHostAlloc(&m_particlePos, NUM_PARTICLES * sizeof(float4), cudaHostAllocDefault);
+	// TODO non-paged this too?
 	m_particleVel = new float3[ NUM_PARTICLES ];
 
 	m_deviceData.numPointsInPairs = m_vectorField->lineSegs.size();
@@ -105,38 +106,27 @@ void ParticleSimulation::Reset()
 	if (err) printf("memcpy h2d: %s\n", cudaGetErrorString(err));
 }
 
+float DT_SPREAD = 0.0001f;
 
 void ParticleSimulation::Recycle( int index )
 {
+	// Get a random vector within a unit sphere
 	float r1;
 	float r2;
 	float r3;
-
-	do 
+	do
 	{
-		r1 = (float)rand() / RAND_MAX;
-		r2 = (float)rand() / RAND_MAX;
-		r3 = (float)rand() / RAND_MAX;
-
-		r1 = (r1*2.0f - 1.0f);	// +/- 0.2
-		r2 = (r2*2.0f - 1.0f);	// +/- 0.2
-		r3 = (r3*2.0f - 1.0f);	// +/- 0.2
+		r1 = randSymmetricNormal();
+		r2 = randSymmetricNormal();
+		r3 = randSymmetricNormal();
 	} while (r1*r1 + r2*r2 + r3*r3 > 1.0f);
 
-// 	float r4 = (float)rand() / RAND_MAX; 
-// 	float r5 = (float)rand() / RAND_MAX;
-// 	float r6 = (float)rand() / RAND_MAX;
-// 
-// 	r4 = (r4*2.0f - 1.0f) * 10.0f;	// +/- 0.2
-// 	r5 = (r5*2.0f - 1.0f) * 0.0f;	// +/- 0.2
-// 	r6 = (r6*2.0f - 1.0f) * 0.0f;	// +/- 0.2
+	m_particlePos[index].x = -0.195 + r1*.002;
+	m_particlePos[index].y =  0.0 + r2*.002;
+	m_particlePos[index].z =  0.0 + r3*.002;
+	m_particlePos[index].w = randFuzzy(1.0f, DT_SPREAD);//9.10938188e-31f; // mass of an electron;
 
-	m_particlePos[index].x = -0.1f + r1*.002;
-	m_particlePos[index].y =  0.0f + r2*.002;
-	m_particlePos[index].z =  0.0f + r3*.002;
-	m_particlePos[index].w = 9.10938188e-31f; // mass of an electron;
-
-	m_particleVel[index].x = randFuzzy(1000000.f, 1000.0f);
+	m_particleVel[index].x = randFuzzy(0.0f, 0.0f);
 	m_particleVel[index].y = randFuzzy(0.0f, 0.0f);
 	m_particleVel[index].z = randFuzzy(0.0f, 0.0f);
 }
@@ -146,6 +136,10 @@ extern ad::Scalar gChargePerMeterOfWire;
 
 void ParticleSimulation::Update(float dt)
 {
+	// We're counting real-time as nanoseconds here!
+	dt *= 1.0e-9f;
+
+
 // 	static int counter = 0;
 // 	counter++;
 // 	{
@@ -162,16 +156,16 @@ void ParticleSimulation::Update(float dt)
 // 	}
 
 	cudaError err;
-	dt *= 1.0e-9f; // nanoseconds
 
 	int outState = m_deviceData.state == 0? 1:0;
 
 	cudaDeviceSynchronize();
 
-	IntegrateNBodySystem( m_deviceData, NUM_PARTICLES, (float)gCurrent, (float)gChargePerMeterOfWire, outState, dt, stream1);
-	cudaMemcpyAsync( m_particlePos, m_deviceData.particlePos[m_deviceData.state], m_numBlocks * NUM_THREADS_PER_BLOCK * sizeof(float4), cudaMemcpyDeviceToHost, stream2);
-	
-	m_deviceData.state = outState;
+	bool updated = IntegrateNBodySystem( m_deviceData, NUM_PARTICLES, (float)gCurrent, (float)gChargePerMeterOfWire, /*(float)gElectronDensityPerParticle,*/ outState, dt, stream1);
+	if (updated) {
+		cudaMemcpyAsync( m_particlePos, m_deviceData.particlePos[m_deviceData.state], m_numBlocks * NUM_THREADS_PER_BLOCK * sizeof(float4), cudaMemcpyDeviceToHost, stream2);
+		m_deviceData.state = outState;
+	}
 
 	err = cudaGetLastError();
 	if (err) printf("%s\n", cudaGetErrorString(err));
@@ -184,9 +178,13 @@ void ParticleSimulation::Draw(float pSize) const
 	{
 		float goopHalfSize = 0.01f * pSize;
 
-		float3 &pos = *(float3 *)&m_particlePos[i];
+		float4 &pos = *(float4 *)&m_particlePos[i];
 
-		glColor4d(1,1,1,1);
+		float colorrange = (pos.w - 1) / (DT_SPREAD);
+		colorrange /= 2.0F;
+		colorrange += 0.5f;
+
+		glColor4f(1.0f*colorrange,1.0f*(1.0f-colorrange),1.0f*(1.0f - colorrange),1);
 		glBegin(GL_QUAD_STRIP);  
 		glVertex3d(pos.x-goopHalfSize, pos.y+goopHalfSize, pos.z-goopHalfSize);
 		glVertex3d(pos.x-goopHalfSize, pos.y+goopHalfSize, pos.z+goopHalfSize);

@@ -45,7 +45,7 @@ Engine::Engine()
 	yr = 0;
 	x = 0.0f;
 	y = 0.0f;
-	z = 5.01f;
+	z = 0.75f;
 	dx = 0;
 	dy = 0;
 	dz = 0;
@@ -116,86 +116,6 @@ Engine::Engine()
  	tweakSys->AddTweak("Current", &gCurrent, 0.000001, 1e20, Tweaks::ScaleStyle_Exponential); 
  	tweakSys->AddTweak("Charge", &gChargePerMeterOfWire, 1e-40, 1e10, Tweaks::ScaleStyle_Exponential); 
 
-//	fieldAccum = new FieldAccumulator();
-//	fieldAccum->AddField(new CurrentLineField(Vec4(-1.0f, -1.0f, 1.0f), Vec4(1.0f, 1.0f, -1.0f)));
-//	fieldAccum->AddField(new CurrentLineField(Vec4(-1.0f, -1.0f, -1.0f), Vec4(1.0f, 1.0f, 0.9f)));
-
-//	fieldAccum->AddField(new CurrentLineField(Vec4(-1.0f, -0.45f, 1.0f), Vec4(1.0f, -0.45f, -1.0f)));
-//	fieldAccum->AddField(new CurrentLineField(Vec4(-1.0f, 0.45f, 1.0f), Vec4(1.0f, 0.45f, -1.0f)));
-
-	//	fieldAccum->AddField(new CurrentLineField(Vec4(-1.0f, -1.0f, -1.0f), Vec4(1.0f, 1.0f, 1.0f)));
-
-
-// 	fieldAccum->AddField(new CurrentLineField(Vec4(0.0f, -0.2f, 0.0f), Vec4(0.0f, 0.2f, 0.0f)));
-// 
-// 	float radius = 0.2f;
-// 	Vec4 prev = Vec4(radius,0,0);
-// 	for (int i = 1; i <= 32; i++)
-// 	{
-// 		Vec4 cur = Vec4(cos(2.0f*M_PI*((float)i/32))*radius, 0, sin(2.0f*M_PI*((float)i/32))*radius);
-// 		fieldAccum->AddField(new CurrentLineField( prev, cur ));
-// 		prev=cur;
-// 	}
-
-
-
-	// circles opposing
-
-// 	float radius = 0.2f;
-// 	Vec4 prev = Vec4(radius,-radius,0);
-// 	for (int i = 1; i <= 32; i++)
-// 	{
-// 		Vec4 cur = Vec4(cos(2.0f*M_PI*((float)i/32))*radius, -radius, sin(2.0f*M_PI*((float)i/32))*radius);
-// 		fieldAccum->AddField(new CurrentLineField( prev, cur ));
-// 		prev=cur;
-// 	}
-// 
-// 	ad::Matrix mat = ad::Matrix(ad::Quaternion(0, 0, -0.01), Vec4(0, 0, 0));
-// 	prev = Vec4(radius,radius,0);
-// 	prev = prev * mat;
-// 
-// 	for (int i = 1; i <= 32; i++)
-// 	{
-// 		Vec4 cur = Vec4(cos(2.0f*M_PI*((float)i/32))*radius, radius, sin(2.0f*M_PI*((float)i/32))*radius);
-// 		cur = cur * mat;
-// 		fieldAccum->AddField(new CurrentLineField( cur, prev ));
-// 		prev=cur;
-// 	}
-// 
-
-	// poly fusor
-// 	float rad = 0.2f;
-	// Z planes
-// 	fieldAccum->AddField(new CurrentLineField( Vec4(0,		rad,	-rad-0.01),	Vec4(-rad,	0,		-rad-0.01)	));
-// 	fieldAccum->AddField(new CurrentLineField( Vec4(-rad,	0,		-rad-0.01),	Vec4(0,		-rad,	-rad-0.01)	));
-// 	fieldAccum->AddField(new CurrentLineField( Vec4(0,		-rad,	-rad-0.01),	Vec4(rad,	0,		-rad-0.01)	 ));
-// 	fieldAccum->AddField(new CurrentLineField( Vec4(rad,	0,		-rad-0.01),	Vec4(0,		rad,	-rad-0.01)	 ));
-// 
-// 	fieldAccum->AddField(new CurrentLineField( Vec4(0,		rad,	rad+0.01),	Vec4(rad,	0,		rad+0.01)	));
-// 	fieldAccum->AddField(new CurrentLineField( Vec4(rad,	0,		rad+0.01),	Vec4(0,		-rad,	rad+0.01)	));
-// 	fieldAccum->AddField(new CurrentLineField( Vec4(0,		-rad,	rad+0.01),	Vec4(-rad,	0,		rad+0.01)	));
-// 	fieldAccum->AddField(new CurrentLineField( Vec4(-rad,	0,		rad+0.01),	Vec4(0,		rad,	rad+0.01)	));
-// 
-// 	// X Planes
-// 	fieldAccum->AddField(new CurrentLineField( Vec4(-rad-0.01,	0,		rad),	Vec4(-rad-0.01,	-rad,	0)		));
-// 	fieldAccum->AddField(new CurrentLineField( Vec4(-rad-0.01,	-rad,	0),		Vec4(-rad-0.01,	0,		-rad)	));
-// 	fieldAccum->AddField(new CurrentLineField( Vec4(-rad-0.01,	0,		-rad),	Vec4(-rad-0.01,	rad,	0)		));
-// 	fieldAccum->AddField(new CurrentLineField( Vec4(-rad-0.01,	rad,	0),		Vec4(-rad-0.01,	0,		rad)	));
-// 
-// 	fieldAccum->AddField(new CurrentLineField( Vec4( rad+0.01,	0,		rad),	Vec4( rad+0.01,	rad,	0)		));
-// 	fieldAccum->AddField(new CurrentLineField( Vec4( rad+0.01,	rad,	0),		Vec4( rad+0.01,	0,		-rad)	));
-// 	fieldAccum->AddField(new CurrentLineField( Vec4( rad+0.01,	0,		-rad),	Vec4( rad+0.01,	-rad,	0)		));
-// 	fieldAccum->AddField(new CurrentLineField( Vec4( rad+0.01,	-rad,	0),		Vec4( rad+0.01,	0,		rad)	));
-// 
-// 	// Y Planes
-// 	fieldAccum->AddField(new CurrentLineField( Vec4( 0,		-rad-0.01,	-rad),	Vec4(-rad,	-rad-0.01,	0)		));
-// 	fieldAccum->AddField(new CurrentLineField( Vec4(-rad,	-rad-0.01,	0),		Vec4( 0,	-rad-0.01,	rad)	));
-// 	fieldAccum->AddField(new CurrentLineField( Vec4( 0,		-rad-0.01,	rad),	Vec4( rad,	-rad-0.01,	0)		));
-// 	fieldAccum->AddField(new CurrentLineField( Vec4( rad,	-rad-0.01,	0),		Vec4( 0,	-rad-0.01,	-rad)	));
-//                   
-// 	fieldAccum->AddField(new CurrentLineField( Vec4( rad,	rad+0.01,	0),		Vec4( 0,	rad+0.01,	rad)	));
-// 	fieldAccum->AddField(new CurrentLineField( Vec4( 0,		rad+0.01,	rad),	Vec4(-rad,	rad+0.01,	0)		));
-// 	fieldAccum->AddField(new CurrentLineField( Vec4(-rad,	rad+0.01,	0),		Vec4( 0,	rad+0.01,	-rad)	));
 
 	field = new CurrentLineVecField();
 	float rad = 0.2f;
@@ -232,65 +152,9 @@ Engine::Engine()
 	field->AddField( 0,			rad+0.01f,	rad,		-rad,		rad+0.01f,	0 );
 	field->AddField(-rad,		rad+0.01f,	0,			 0,			rad+0.01f,	-rad );
 
-// 	float start = 0.5f;
-// 	float end = 4.0f;
-// 
-// 	int numLines = 16;
-// 	for (int i = 0; i < numLines; i++)
-// 	{
-// 		float zPos = sin(2.0f*M_PI*(float)i/(float)numLines);
-// 		float yPos = cos(2.0f*M_PI*(float)i/(float)numLines);
-// //		field->AddField( -1.0f, yPos*rad*end, zPos*rad*end, 1.0f, yPos*rad*start, zPos*rad*start);
-// 
-// 		float zPos2 = sin(2.0f*M_PI*(float)(i+1)/(float)numLines);
-// 		float yPos2 = cos(2.0f*M_PI*(float)(i+1)/(float)numLines);
-// 		field->AddField( 0.0f, yPos*rad, zPos*rad, 0.0f, yPos2*rad, zPos2*rad);
-// 	}
-
-
-
-
-
-// 
-//   	float r = 0.2f;
-// 	fieldAccum->AddField(new CurrentLineField( Vec4( 0, r, 0), Vec4( 0,	0, r) ));
-// 	fieldAccum->AddField(new CurrentLineField( Vec4( 0, 0, r), Vec4( r, 0, 0) ));
-// 	fieldAccum->AddField(new CurrentLineField( Vec4( r, 0, 0), Vec4( 0, r, 0) ));
-// 
-// 	fieldAccum->AddField(new CurrentLineField( Vec4( 0, r, 0), Vec4( 0,	0,-r) ));
-// 	fieldAccum->AddField(new CurrentLineField( Vec4( 0, 0,-r), Vec4(-r, 0, 0) ));
-// 	fieldAccum->AddField(new CurrentLineField( Vec4(-r, 0, 0), Vec4( 0, r, 0) ));
-// 
-// 	fieldAccum->AddField(new CurrentLineField( Vec4( 0,-r, 0), Vec4( 0,	0, r) ));
-// 	fieldAccum->AddField(new CurrentLineField( Vec4( 0, 0, r), Vec4(-r, 0, 0) ));
-// 	fieldAccum->AddField(new CurrentLineField( Vec4(-r, 0, 0), Vec4( 0,-r, 0) ));
-// 
-// 	fieldAccum->AddField(new CurrentLineField( Vec4( 0,-r, 0), Vec4( 0,	0,-r) ));
-// 	fieldAccum->AddField(new CurrentLineField( Vec4( 0, 0,-r), Vec4( r, 0, 0) ));
-// 	fieldAccum->AddField(new CurrentLineField( Vec4( r, 0, 0), Vec4( 0,-r, 0) ));
-
-
-
-
-
-// 	// Z planes
-// 	fieldAccum->AddField(new CurrentLineField( Vec4(0,		rad,	-rad),	Vec4(-rad,	0,		-rad)	));
-// 	fieldAccum->AddField(new CurrentLineField( Vec4(-rad,	0,		-rad),	Vec4(0,		-rad,	-rad)	));
-// 	fieldAccum->AddField(new CurrentLineField( Vec4(0,		-rad,	-rad),	Vec4(rad,	0,		0)	 ));
-// 	fieldAccum->AddField(new CurrentLineField( Vec4(rad,	0,		0),	Vec4(0,		rad,	-rad)	 ));
-
-
-
-	// random lines
-
-//	fieldAccum->AddField(new CurrentLineField(Vec4(0.0f, 1.0f, 0.0f), Vec4( 0.0f, -1.0f, 0.0f)));
-//	fieldAccum->AddField(new CurrentLineField(Vec4(-1.0f, -0.45f,  0.0f), Vec4( 1.0f, -0.45f,  0.0f)));
-//	fieldAccum->AddField(new CurrentLineField(Vec4(-1.0f,  0.45f,  0.0f), Vec4( 1.0f,  0.45f,  0.0f)));
-//	fieldAccum->AddField(new CurrentLineField(Vec4( 0.0f,  0.00f, -1.0f), Vec4( 0.0f,  0.00f,  1.0f)));
-
 //	pSys = new ParticleSystem(fieldAccum);
 	pSim = new ParticleSimulation(field);
-//	fieldRenderer = new FieldRenderer(fieldAccum);
+//	fieldRenderer = new FieldRenderer(field);
 	
 	last_time = SDL_GetTicks();
 //    SDL_WM_GrabInput(SDL_GRAB_OFF);
@@ -303,58 +167,53 @@ void Engine::Update()
 	Uint32 current_time = SDL_GetTicks();
 	if (current_time == last_time) // damn we're fast
 	{
-		elapsedtime = 0.0f;
+		elapsedtime = 0.0;
 		return;
 	}
 	
-	elapsedtime = (float)(current_time-last_time)/1000.0f;
+	elapsedtime = (double)(current_time-last_time)/1000.0;
 	last_time = current_time;
 
-	if (elapsedtime > 0.1f)
-		elapsedtime = 0.1f;
+	if (elapsedtime > 0.1)
+		elapsedtime = 0.1;
 
-	float speed = 0.1f;
+	// TEMP HACK - use a fixed timestep for now, even though this isn't linked to framerate.
+	// Too lazy to do this properly, but want consistent simulation results because I was testing the stability of the integrator.
+	elapsedtime = 0.016;
 
-	if (dx != 0 || dy != 0 || dz != 0)
-	{
-		fieldRenderer->NudgeInteractive((float)dx*elapsedtime*speed, (float)dy*elapsedtime*speed, (float)dz*elapsedtime*speed);
-	}
+	// double speed = 0.1;
+	// if (dx != 0 || dy != 0 || dz != 0)
+	// {
+	// 	fieldRenderer->NudgeInteractive((float)dx * elapsedtime * speed, (float)dy * elapsedtime * speed, (float)dz * elapsedtime * speed);
+	// }
 
-//	pSys->Update(elapsedtime*dtMult);
-	pSim->Update(elapsedtime*(float)dtMult);
-	field->UpdateField(elapsedtime*(float)dtMult);
-//	boxman->Update(elapsedtime);
+	pSim->Update(elapsedtime * dtMult);
+	field->UpdateField(elapsedtime * (float)dtMult);
 }
 
 void Engine::Draw()
 {
 // 	if (elapsedtime == 0.0f)
 // 		return;
-	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glViewport(0, 0, width, height);
-	glMatrixMode( GL_PROJECTION );
-	glLoadIdentity( );
-	gluPerspective( 60.0, (float)width/(float)height, 0.0001, 1024.0 );
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	gluPerspective(60.0, (float)width/(float)height, 0.0001, 1024.0);
 
-	glMatrixMode( GL_MODELVIEW );
-	glLoadIdentity( );
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
 
-	glRotatef( -yr, 1.0, 0.0, 0.0 );
-	glRotatef( -xr, 0.0, 1.0, 0.0 );
-	glTranslatef( -x, -y, -z );
+	glRotatef(-yr, 1.0, 0.0, 0.0);
+	glRotatef(-xr, 0.0, 1.0, 0.0);
+	glTranslatef(-x, -y, -z);
 
 	glLightfv(GL_LIGHT0, GL_AMBIENT, l0_ambient);
 	glLightfv(GL_LIGHT0, GL_POSITION, l0_position);
 
 	glRotatef(objectPitch, 1, 0, 0);
 	glRotatef(objectYaw, 0, 1, 0);
-
-// 	glBegin(GL_TRIANGLES);  
-// 		glColor4f(1,0,0,1); glVertex3f(-1, 0, 0); 
-// 		glColor4f(0,1,0,1); glVertex3f(1, 0, 0); 
-// 		glColor4f(0,0,1,1); glVertex3f(0, 1, 0); 
-// 	glEnd(); 
 
 	glDisable(GL_LIGHTING);
 	glBegin(GL_LINES);  
@@ -463,14 +322,14 @@ void Engine::HandleKey(SDL_Keycode key, bool down)
 			pSim->Reset();
 		}
 		break;
-	case SDLK_RIGHTBRACKET:
-		if (down)
-			fieldRenderer->IncNumSteps();
-		break;
-	case SDLK_LEFTBRACKET:
-		if (down)
-			fieldRenderer->DecNumSteps();
-		break;
+	// case SDLK_RIGHTBRACKET:
+	// 	if (down)
+	// 		fieldRenderer->IncNumSteps();
+	// 	break;
+	// case SDLK_LEFTBRACKET:
+	// 	if (down)
+	// 		fieldRenderer->DecNumSteps();
+	// 	break;
 	case SDLK_KP_PLUS:
 		if (down)
 			dtMult *= 2;
@@ -479,10 +338,10 @@ void Engine::HandleKey(SDL_Keycode key, bool down)
 		if (down)
 			dtMult /= 2;
 		break;
-	case SDLK_SPACE:
-		if (down)
-			fieldRenderer->Save();
-		break;
+	// case SDLK_SPACE:
+	// 	if (down)
+	// 		fieldRenderer->Save();
+	// 	break;
 	case SDLK_ESCAPE:
 		throw(0); 
 		break;
