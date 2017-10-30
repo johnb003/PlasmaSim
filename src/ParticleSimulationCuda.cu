@@ -79,12 +79,17 @@
 // 	outVel = initialVelocity + acc * dt;	// w = mass, F/m = a
 // }
 
+static const SIMREAL MAX_ERROR_THRESHOLD = 1.0e-20f;
+static const SIMREAL MIN_NORMALIZABLE_DIST = 0;
+static const SIMREAL SECONDS_TIL_STOP = 200;	// This is particle nanoseconds, not simulation seconds.
+
+
 struct State
 {
-	float3 pos;
-	float3 vel;
+	SIMREAL3 pos;
+	SIMREAL3 vel;
 
-	__device__ State(float3 pos, float3 vel)
+	__device__ State(SIMREAL3 pos, SIMREAL3 vel)
 		: pos(pos), vel(vel)
 	{
 	}
@@ -92,11 +97,11 @@ struct State
 
 struct Derivative
 {
-	float3 dPos;	// delta pos. aka velocity
-	float3 dVel;	// acceleration
+	SIMREAL3 dPos;	// delta pos. aka velocity
+	SIMREAL3 dVel;	// acceleration
 //	float3 turnAcc;	// turning acceleration
 
-	__device__ Derivative(float3 dPos, float3 dVel)
+	__device__ Derivative(SIMREAL3 dPos, SIMREAL3 dVel)
 		: dPos(dPos), dVel(dVel)
 	{
 	}
@@ -112,9 +117,9 @@ struct FieldParm
 	float electronParticleDensity;
 };
 
-__device__ Derivative operator*(float f, const Derivative &rhs)
+__device__ Derivative operator*(SIMREAL a, const Derivative &rhs)
 {
-	return Derivative(rhs.dPos*f, rhs.dVel*f);
+	return Derivative(rhs.dPos * a, rhs.dVel * a);
 }
 
 __device__ Derivative operator+(const Derivative &lhs, const Derivative &rhs)
@@ -147,23 +152,25 @@ __device__ Derivative operator+(const Derivative &lhs, const Derivative &rhs)
 // 1/z * (dB / dot(PB, PB) - dA / dot(PA, PA));
 // ... I'm trailing off here, dB and dA aren't available without what we had before.... Worth it???
 
-__device__ void GetFields( const float3 &pos, FieldParm &fieldParms, float3 &BField, float3 &EField ) 
+__device__ void GetFields( const SIMREAL3 &pos, FieldParm &fieldParms, SIMREAL3 &BField, SIMREAL3 &EField ) 
 {
-	const float mu = 1e-7;	// magnetic permeability of free space
-	const float Ke = 8987551787.3681764; // C^2E-7
+	const SIMREAL mu = 1e-7;	// magnetic permeability of free space
+	const SIMREAL Ke = 8987551787.3681764; // C^2E-7
 
-	BField.x = 0.0f;
-	BField.y = 0.0f;
-	BField.z = 0.0f;
-	EField.x = 0.0f;
-	EField.y = 0.0f;
-	EField.z = 0.0f;
+	BField.x = 0.0;
+	BField.y = 0.0;
+	BField.z = 0.0;
+	EField.x = 0.0;
+	EField.y = 0.0;
+	EField.z = 0.0;
 
 	int lineIdx = 0;
 	while (lineIdx < fieldParms.numPairs)
 	{
-		float3 lineA = fieldParms.pairPoints[lineIdx];
-		float3 lineB = fieldParms.pairPoints[lineIdx+1];
+		float3 lineA_ = fieldParms.pairPoints[lineIdx];
+		SIMREAL3 lineA = MAKE_SIMREAL3(lineA_.x, lineA_.y, lineA_.z);
+		float3 lineB_ = fieldParms.pairPoints[lineIdx+1];
+		SIMREAL3 lineB = MAKE_SIMREAL3(lineB_.x, lineB_.y, lineB_.z);
 		lineIdx += 2;
 
 		// The magnetic field is proportional to:
@@ -212,6 +219,8 @@ __device__ void GetFields( const float3 &pos, FieldParm &fieldParms, float3 &BFi
 		// Wolfram Alpha, because math.
 		//
 		// Ex = [ -1 / sqrt(x^2 + z^2) ] (from A to B in terms of distance from C)
+		// ok, so as it turns out, this is just 1/r^2 from CtoB - 1/r^2 from CtoA, along AtoBDir.
+		// That's pretty intuitive.
 
 		// Magnetic Field:
 
@@ -245,30 +254,34 @@ __device__ void GetFields( const float3 &pos, FieldParm &fieldParms, float3 &BFi
 		// But this gives me more useful values I will need later:
 		// 		AP•(AB/|AB|) * (AB/|AB|)
 
-		float3 AtoB = lineB - lineA;					// AB
-		float AtoBLen = sqrtf(dot(AtoB, AtoB));			// |AB|
-		float3 AtoBDir = AtoB / AtoBLen;				// AB/|AB|
+		SIMREAL3 AtoB = lineB - lineA;					// AB
+		SIMREAL AtoBLen = sqrt(dot(AtoB, AtoB));			// |AB|
+		SIMREAL3 AtoBDir = AtoB / AtoBLen;				// AB/|AB|
 
 		// project to unit vector, gives nice distance along unit vector.
-		float dotP = dot(pos - lineA, AtoBDir);			// Distance from A to C
-		float3 closestPoint = lineA + AtoBDir * dotP;	// C
+		SIMREAL dotP = dot(pos - lineA, AtoBDir);			// Distance from A to C
+		SIMREAL3 closestPoint = lineA + AtoBDir * dotP;	// C
 
 		// In order to solve the integrals, we need the start and end values for x, which is relative to the center point
-		float dA = -dotP;								// we already got the scalar for CtoA in the projection.
-		float dB = dA + AtoBLen;						// And we can just compute CtoB from AtoB - AtoC
+		SIMREAL dA = -dotP;								// we already got the scalar for CtoA in the projection.
+		SIMREAL dB = dA + AtoBLen;						// And we can just compute CtoB from AtoB - AtoC
 
 		// zDir is useful for both distance of z, and since we have AtoBdir, we now have unit vectors for the components we're working with.
-		float3 zDir = pos - closestPoint;				// CP
+		SIMREAL3 zDir = pos - closestPoint;				// CP
 
-		float distToLineSq = dot(zDir, zDir);			// z^2
+		SIMREAL distToLineSq = dot(zDir, zDir);			// z^2
 		// we'll normalize zDir later, if we're sure it's not too small.
 
+		SIMREAL ArSq = RSQRT(dA*dA + distToLineSq);
+		SIMREAL BrSq = RSQRT(dB*dB + distToLineSq);
+
 		// Ex = [ -1 / sqrt(x^2 + z^2) ] (from A to B in terms of distance from C)
-		// Written backwards because it's negated.
-		float LineIntegralX = -rsqrtf(dA*dA + distToLineSq) + rsqrtf(dB*dB + distToLineSq);
+		// The -1 would make this A - B, except the integral for the AtoC actually applies in the AtoB dir.
+		// So it's like a doulbe negative, and that's why we get B - A, and that -1 disappears.
+		SIMREAL LineIntegralX = BrSq - ArSq;
 
 		// Bfield has no affect from the X 1/r^2, since it's perpendicular to that plane.
-		const float minDistSq = 1e-5f;		
+		const SIMREAL minDistSq = MIN_NORMALIZABLE_DIST;		
 
 		// If we're effectively colliding with the line, we could say E-field attraction is REALLY high, and
 		// B-field is super strong, but we can't tell in what direction, so we need to be careful here.
@@ -276,32 +289,25 @@ __device__ void GetFields( const float3 &pos, FieldParm &fieldParms, float3 &BFi
 		// an infitesimally small DT to be accurate. It'd be nice if we didn't have to deal with such a bad
 		// vertical asymtote.
 		// It should have a velocity to continue moving, so we'll just make this a tiny dead-zone
-		float3 bFieldDir;
-		float distToLineRecip;
-		float LineIntegralZ;
-		if (distToLineSq > minDistSq)
-		{
-			distToLineRecip = rsqrtf(distToLineSq+0.000001f);
+		SIMREAL3 bFieldDir;
+		SIMREAL distToLineRecip;
+		// if (distToLineSq > minDistSq)
+		// {
+			distToLineRecip = RSQRT(distToLineSq+0.0001);
 			zDir *= distToLineRecip;
 			// the B field only works if there is distance from the wire. We need it to form the direction.
 			bFieldDir = cross(AtoBDir, zDir);
-	
-			// This integral only works if the distance of z > ~0
-			// [x / (z * sqrt(x^2 + z^2) )] ( from A to B )
-			// 1/z * [x / (sqrt(x^2 + z^2) )] ( from A to B )
-			LineIntegralZ = distToLineRecip * (dB * rsqrtf(dB*dB + distToLineSq) - dA * rsqrtf(dA*dA + distToLineSq));
-		}
-		else
-		{
-			distToLineRecip = rsqrtf(distToLineSq+0.000001f);
-			zDir = make_float3(0.0f);
-			bFieldDir = make_float3(0.0f);
+		// }
+		// else
+		// {
+		// 	distToLineRecip = RSQRT(distToLineSq+0.000001);
+		// 	zDir = make_SIMREAL3(0.0);
+		// 	bFieldDir = make_SIMREAL3(0.0);
+		// }
+		// [x / (z * sqrt(x^2 + z^2) )] ( from A to B )
+		// 1/z * [x / (sqrt(x^2 + z^2) )] ( from A to B )
+		SIMREAL LineIntegralZ = distToLineRecip * (dB * BrSq - dA * ArSq);
 
-			// This integral only works if the distance of z > ~0
-			// [x / (z * sqrt(x^2 + z^2) )] ( from A to B )
-			// 1/z * [x / (sqrt(x^2 + z^2) )] ( from A to B )
-			LineIntegralZ = distToLineRecip * (dB * rsqrtf(dB*dB + distToLineSq) - dA * rsqrtf(dA*dA + distToLineSq));
-		}
 		EField += (LineIntegralX * AtoBDir + LineIntegralZ * zDir) * fieldParms.chargePerPointOnWire * Ke; 
 
 		// No point in doing this unless the B field has an effect.
@@ -310,57 +316,57 @@ __device__ void GetFields( const float3 &pos, FieldParm &fieldParms, float3 &BFi
 	}
 }
 
-__device__ Derivative SampleDerivative(float dt, const State &sampleState, FieldParm &fieldParms)
+__device__ Derivative SampleDerivative(SIMREAL dt, const State &sampleState, FieldParm &fieldParms)
 {
-	float3 BField, EField;
+	SIMREAL3 BField, EField;
 	GetFields(sampleState.pos, fieldParms, BField, EField);
 
-	const float particleCharge = -1.60217646e-19;	// charge of an electron (this should be read per-particle)
+	SIMREAL particleCharge = -1.60217646e-19;	// charge of an electron (this should be read per-particle)
 
 	// f = q(E + v x B)
-	float3 force = (EField + cross(sampleState.vel, BField)) * particleCharge;
+	SIMREAL3 force = (EField + cross(sampleState.vel, BField)) * particleCharge;
 
 	// TODO: body-body interactions.
 	// TODO: particle movement induced fields.
 
-	return Derivative(sampleState.vel, force/fieldParms.mass);
+	return Derivative(sampleState.vel, force*(1.0/fieldParms.mass));
 }
 
-__device__ State EulerStep(float dt, const State &initialState, const Derivative &initialDerivative)
+__device__ State EulerStep(SIMREAL dt, const State &initialState, const Derivative &initialDerivative)
 {
 	return State(initialState.pos + dt*initialDerivative.dPos, initialState.vel + dt*initialDerivative.dVel);
 }
 
-__device__ void RK45Integrate(const State &initialState, FieldParm &fieldParms, float dt, float3 &outPos, float3 &outVel, float &errorOut)
+__device__ void RK45Integrate(const State &initialState, FieldParm &fieldParms, SIMREAL dt, SIMREAL3 &outPos, SIMREAL3 &outVel, SIMREAL &errorOut)
 {
-	//const float C1=0.0f;
-	static const float C2 = 0.25f;
-	static const float C3 = 3.0f/8.0f;
-	static const float C4 = 12.0f/13.0f;
-	static const float C5 = 1.0f;
-	static const float C6 = 0.5f;
+	//const SIMREAL C1=0.0;
+	static const SIMREAL C2 = 0.25;
+	static const SIMREAL C3 = 3.0/8.0;
+	static const SIMREAL C4 = 12.0/13.0;
+	static const SIMREAL C5 = 1.0;
+	static const SIMREAL C6 = 0.5;
 
-	static const float A21 = 0.25f;
-	static const float A31 = 3.0f/32.0f, A32 = 9.0/32.0f;
-	static const float A41 = 1932.0f/2197.0f, A42 = -7200.0f/2197.0f, A43 = 7296.0f/2197.0f;
-	static const float A51 = 439.0f/216.0f, A52 = -8.0f, A53 = 3680.0f/513.0f, A54 = -845.0f/4104.0f;
-	static const float A61 = -8.0f/27.0f, A62 = 2.0f, A63 = -3544.0f/2565.0f, A64 = 1859.0f/4104.0f, A65 = -11.0f/40.0f;
+	static const SIMREAL A21 = 0.25;
+	static const SIMREAL A31 = 3.0/32.0, A32 = 9.0/32.0;
+	static const SIMREAL A41 = 1932.0/2197.0, A42 = -7200.0/2197.0, A43 = 7296.0/2197.0;
+	static const SIMREAL A51 = 439.0/216.0, A52 = -8.0, A53 = 3680.0/513.0, A54 = -845.0/4104.0;
+	static const SIMREAL A61 = -8.0/27.0, A62 = 2.0, A63 = -3544.0/2565.0, A64 = 1859.0/4104.0, A65 = -11.0/40.0;
 	// -------------------------------------------------------------------------------------------------------------------------
-	const float B4_1 = 25.0f/216.0f, B4_2 = 0.0f, B4_3 = 1408.0f/2565.0f, B4_4 = 2197.0f/4104.0f, B4_5 = -1.0f/5.0f, B4_6 = 0.0f;
-	const float B5_1 = 16.0f/135.0f, B5_2 = 0.0f, B5_3 = 6656.0f/12825.0f,B5_4 = 28561.0f/56430.0f,B5_5 = -9.0f/50.0f, B5_6 = 2.0f/55.0f;
+	const SIMREAL B4_1 = 25.0/216.0, B4_2 = 0.0, B4_3 = 1408.0/2565.0, B4_4 = 2197.0/4104.0, B4_5 = -1.0/5.0, B4_6 = 0.0;
+	const SIMREAL B5_1 = 16.0/135.0, B5_2 = 0.0, B5_3 = 6656.0/12825.0,B5_4 = 28561.0/56430.0,B5_5 = -9.0/50.0, B5_6 = 2.0/55.0;
 
-	Derivative k1 = SampleDerivative(0.0f, initialState, fieldParms);
-	Derivative k2 = SampleDerivative(C2*dt, EulerStep(dt, initialState, A21*k1), fieldParms);
-	Derivative k3 = SampleDerivative(C3*dt, EulerStep(dt, initialState, A31*k1 + A32*k2), fieldParms);
-	Derivative k4 = SampleDerivative(C4*dt, EulerStep(dt, initialState, A41*k1 + A42*k2 + A43*k3), fieldParms);
-	Derivative k5 = SampleDerivative(C5*dt, EulerStep(dt, initialState, A51*k1 + A52*k2 + A53*k3 + A54*k4), fieldParms);
-	Derivative k6 = SampleDerivative(C6*dt, EulerStep(dt, initialState, A61*k1 + A62*k2 + A63*k3 + A64*k4 + A65*k5), fieldParms);
+	Derivative k1 = SampleDerivative(0.0, initialState, fieldParms);
+	Derivative k2 = SampleDerivative(C2 * dt, EulerStep(dt, initialState, A21 * k1), fieldParms);
+	Derivative k3 = SampleDerivative(C3 * dt, EulerStep(dt, initialState, A31 * k1 + A32 * k2), fieldParms);
+	Derivative k4 = SampleDerivative(C4 * dt, EulerStep(dt, initialState, A41 * k1 + A42 * k2 + A43 * k3), fieldParms);
+	Derivative k5 = SampleDerivative(C5 * dt, EulerStep(dt, initialState, A51 * k1 + A52 * k2 + A53 * k3 + A54 * k4), fieldParms);
+	Derivative k6 = SampleDerivative(C6 * dt, EulerStep(dt, initialState, A61 * k1 + A62 * k2 + A63 * k3 + A64 * k4 + A65 * k5), fieldParms);
 
 	// ...
 	//Derivative kn = SampleDerivative(Cn*dt, EulerStep(initialState, An1*k1 + An2*k2 + ... + An_(n-1)*k_(n-1), dt));
 
-	const Derivative deltaSum4 = B4_1*k1 + B4_2*k2+ B4_3*k3 + B4_4*k4 + B4_5*k5 + B4_6*k6;
-	const Derivative deltaSum5 = B5_1*k1 + B5_2*k2 + B5_3*k3 + B5_4*k4 + B5_5*k5 + B5_6*k6;
+	const Derivative deltaSum4 = B4_1 * k1 + B4_2 * k2 + B4_3 * k3 + B4_4 * k4 + B4_5 * k5 + B4_6 * k6;
+	const Derivative deltaSum5 = B5_1 * k1 + B5_2 * k2 + B5_3 * k3 + B5_4 * k4 + B5_5 * k5 + B5_6 * k6;
 
 	// For Runge-Kutta on Wikipedia, this final step is done differently because each Ki is stored as dt*derivative, instead of just the derivative as I have done.
 	// What that means for the math version is that the final weighted average can just be added to the position. The only difference is that I've saved the dt for last
@@ -368,7 +374,7 @@ __device__ void RK45Integrate(const State &initialState, FieldParm &fieldParms, 
 	State updatedOrder5 = EulerStep(dt, initialState, deltaSum5);
 	State updatedOrder4 = EulerStep(dt, initialState, deltaSum4);
 
-	float3 deltaActualApprox = updatedOrder5.pos - updatedOrder4.pos;
+	SIMREAL3 deltaActualApprox = updatedOrder5.pos - updatedOrder4.pos;
 	errorOut = dot(deltaActualApprox, deltaActualApprox);
 	outVel = updatedOrder5.vel;
 	outPos = updatedOrder5.pos;
@@ -376,18 +382,18 @@ __device__ void RK45Integrate(const State &initialState, FieldParm &fieldParms, 
 
 
 __global__ void	integrateBodies(
-	const float4 *position,
-	const float3 *velocity,
+	const SIMREAL4 *position,
+	const SIMREAL3 *velocity,
 	const float3 *linePairs,
 	const int numPairPoints,
 	const int numBodies,
 	const float currentAmperes,
 	const float chargePerPointOnWire,
 	const float electronParticleDensity,
-	float dt,
-	float4 *outPosBuff,
-	float3 *outVelBuff,
-	float *outErrorBuff)
+	SIMREAL dt,
+	SIMREAL4 *outPosBuff,
+	SIMREAL3 *outVelBuff,
+	SIMREAL *outErrorBuff)
 {
 	int index = blockDim.x * blockIdx.x + threadIdx.x;
 	if (index >= numBodies)
@@ -395,12 +401,12 @@ __global__ void	integrateBodies(
 
 	const float3 *pairPoints = linePairs;
 
-	float4 pos4 = position[index];
-	float3 vel = velocity[index];
+	SIMREAL4 pos4 = position[index];
+	SIMREAL3 vel = velocity[index];
 
 	// each particle should iterate over the line pairs, and sum the E and B field vectors
 
-	float3 outPos, outVel;
+	SIMREAL3 outPos, outVel;
 
 	FieldParm fieldParm;
 	fieldParm.chargePerPointOnWire = chargePerPointOnWire;
@@ -410,23 +416,28 @@ __global__ void	integrateBodies(
 	fieldParm.numPairs = numPairPoints;
 	fieldParm.electronParticleDensity = electronParticleDensity;
 
-	float errorApprox;
-	RK45Integrate(State(make_float3(pos4.x, pos4.y, pos4.z), vel), fieldParm, dt*pos4.w, outPos, outVel, errorApprox);
+	SIMREAL errorApprox;
+	// HACK: Note the pos4.w in the dt, that's a timescale hack... It should be temporary.
+	RK45Integrate(State(MAKE_SIMREAL3(pos4.x, pos4.y, pos4.z), vel), fieldParm, dt * pos4.w, outPos, outVel, errorApprox);
 
 	outPosBuff[index].x = outPos.x;
 	outPosBuff[index].y = outPos.y;
 	outPosBuff[index].z = outPos.z;
 	outPosBuff[index].w = pos4.w;
 	outVelBuff[index] = outVel;
-	outErrorBuff[index] = errorApprox;//dot(outPos - outPos2, outPos - outPos2);
+	outErrorBuff[index] = errorApprox;  //dot(outPos - outPos2, outPos - outPos2);
 }
 
 static float inflicted = 1.0f;
 int frame = 0;
+extern SIMREAL timeEvolution;
+extern SIMREAL dtMultCopy;
 
 bool IntegrateNBodySystem( DeviceData &deviceData, int numBodies, float currentAmperes, float chargePerPointOnWire,
-	float electronParticleDensity, int outputIndex, float dt, cudaStream_t stream)
+	float electronParticleDensity, int outputIndex, SIMREAL dt, cudaStream_t stream)
 {
+//	if (timeEvolution > SECONDS_TIL_STOP) return false;
+
 	int numThreadsPerBlock = 64;
 	static const int NUM_RETRIES = 10;
 	int numBlocks = (numBodies-1) / numThreadsPerBlock + 1;
@@ -438,7 +449,6 @@ bool IntegrateNBodySystem( DeviceData &deviceData, int numBodies, float currentA
 	int retryCount = 0;
 	int inputIndex = deviceData.state;
 
-	const float fltThresh = 1.0e-10f;
 	for (; retryCount < NUM_RETRIES; retryCount++)
 	{
 		integrateBodies<<< dimGrid, dimBlock, 0, stream >>>(
@@ -456,26 +466,27 @@ bool IntegrateNBodySystem( DeviceData &deviceData, int numBodies, float currentA
 			deviceData.integrationStepError);
 
 		// wrap raw pointer with a device_ptr 
-		thrust::device_ptr<float> dev_ptr(deviceData.integrationStepError);
-		float max = thrust::reduce(dev_ptr, dev_ptr + numBodies, -1.0f, thrust::maximum<float>());
+		thrust::device_ptr<SIMREAL> dev_ptr(deviceData.integrationStepError);
+		SIMREAL max = thrust::reduce(dev_ptr, dev_ptr + numBodies, -1.0, thrust::maximum<SIMREAL>());
 
 		if (inflicted < 1.0f)
 		{
 			std::stringstream ss;
-			std::cout << std::setprecision(8) << "Dt reduced (" << inflicted*100 << "%) to maintain error threshold less than: " << fltThresh << ".\n";
+			std::cout << std::setprecision(8) << "Dt reduced (" << inflicted*100 << "%) to maintain error threshold less than: " << MAX_ERROR_THRESHOLD << ".\n";
 			std::cout << "Largest integration error: " << max << std::endl;
 		}
 
-		if (max < fltThresh*1.0e-2 && inflicted < 1.0f) {
+		if (max < MAX_ERROR_THRESHOLD * 1.0e-2 && inflicted < 1.0f) {
 			inflicted *= 2;
 		}
 
-		if (max < fltThresh)
+		if (max < MAX_ERROR_THRESHOLD)
 			break;
 
 		// too inaccurate, try again
 		inflicted /= 2;
 	}
 	if (retryCount == NUM_RETRIES) return false;
+	timeEvolution += dt/1.e-9*inflicted;
 	return true;
 }

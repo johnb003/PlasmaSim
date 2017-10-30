@@ -3,6 +3,7 @@
 
 #include <vector_types.h>  // cuda vectors
 #include <driver_types.h>
+#include "sim_precision.h"
 
 class CurrentLineVecField;
 
@@ -10,12 +11,12 @@ struct DeviceData
 {
 public:
 	// Device Data
-	float4 *particlePos[2];
-	float3 *particleVel[2];
-	float *integrationStepError;
+	SIMREAL4 *particlePos[2];
+	SIMREAL3 *particleVel[2];
+	SIMREAL *integrationStepError;
 	float3 *linePairPos;
 	int numPointsInPairs;
-	// we're using double buffers, so the inputs are preserved.
+	// we're using SIMREAL buffers, so the inputs are preserved.
 	// this allows us to write outputs, and then if it wasn't good
 	// we can try again without destruction of the device data.
 	int state;  // Current Input Index
@@ -33,8 +34,8 @@ class ParticleSimulation
 	cudaEvent_t eventDoneDtoHMemCpy;
 	cudaEvent_t eventDoneKernel;
 
-	float4 *m_particlePos;
-	float3 *m_particleVel;
+	SIMREAL4 *m_particlePos;
+	SIMREAL3 *m_particleVel;
 
 	DeviceData m_deviceData;
 
@@ -47,12 +48,12 @@ public:
 	~ParticleSimulation();
 
  	void Draw(float pSize) const;
- 	void Update(float dt);
+ 	void Update(SIMREAL dt);
  	void Reset();
 	void Recycle(int index);
 };
 
 // Cuda implementation
-bool IntegrateNBodySystem(DeviceData &deviceData, int numBodies, float currentAmperes, float chargePerPointOnWire, float particleDensity, int outputIndex, float dt, cudaStream_t stream);
+bool IntegrateNBodySystem(DeviceData &deviceData, int numBodies, float currentAmperes, float chargePerPointOnWire, float particleDensity, int outputIndex, SIMREAL dt, cudaStream_t stream);
 
 #endif // PARTICLE_SIMULATION_H

@@ -40,23 +40,25 @@ static float l0_position[] = {0.0f, 0.0f, 1.0f, 0.0f};
 static float l0_ambient[] =  {0.2f, 0.2f, 0.2f, 1.0f};
 extern ad::Scalar gElectronDensityPerParticle;
 
+double dtMultCopy = 1.0;
+
 Engine::Engine()
 {
 	xr = 0;
 	yr = 0;
-	x = 0.0f;
+	x = -0.2f;
 	y = 0.0f;
 	z = 0.75f;
 	dx = 0;
 	dy = 0;
 	dz = 0;
-	objectYaw = 0.0f;
-	objectPitch = 0.0f;
+	objectYaw = 90.0f;
+	objectPitch = 30.0f;
 	tweakingUI = false;
 
 	dtMult = 1.0;
 
-	zoom = 1.0f;
+	zoom = 0.1f;
 
 	cudaSetDeviceFlags(cudaDeviceScheduleBlockingSync);
 
@@ -66,8 +68,8 @@ Engine::Engine()
 		throw(1);
 	}
 
-	width = 1280;
-	height = 1024;
+	width = 800;
+	height = 600;
 	flags = SDL_WINDOW_OPENGL;
 
 	SDL_GL_SetAttribute( SDL_GL_DOUBLEBUFFER, 1 );
@@ -123,36 +125,36 @@ Engine::Engine()
 	float rad = 0.2f;
 	// Z planes
 	field->AddField( 0,			rad,		-rad-0.01f,	-rad,		0,			-rad-0.01f );
-	field->AddField(-rad,		0,			-rad-0.01f,	0,			-rad,		-rad-0.01f );
-	field->AddField( 0,			-rad,		-rad-0.01f,	rad,		0,			-rad-0.01f );
-	field->AddField( rad,		0,			-rad-0.01f,	0,			rad,		-rad-0.01f );
+	// field->AddField(-rad,		0,			-rad-0.01f,	0,			-rad,		-rad-0.01f );
+	// field->AddField( 0,			-rad,		-rad-0.01f,	rad,		0,			-rad-0.01f );
+	// field->AddField( rad,		0,			-rad-0.01f,	0,			rad,		-rad-0.01f );
 	
-	field->AddField( 0,			rad,		rad+0.01f,	rad,		0,			rad+0.01f );
-	field->AddField( rad,		0,			rad+0.01f,	0,			-rad,		rad+0.01f );
-	field->AddField( 0,			-rad,		rad+0.01f,	-rad,		0,			rad+0.01f );
-	field->AddField(-rad,		0,			rad+0.01f,	0,			rad,		rad+0.01f );
+	// field->AddField( 0,			rad,		rad+0.01f,	rad,		0,			rad+0.01f );
+	// field->AddField( rad,		0,			rad+0.01f,	0,			-rad,		rad+0.01f );
+	// field->AddField( 0,			-rad,		rad+0.01f,	-rad,		0,			rad+0.01f );
+	// field->AddField(-rad,		0,			rad+0.01f,	0,			rad,		rad+0.01f );
 
-	// X Planes
-	field->AddField(-rad-0.01f,	0,			rad,		-rad-0.01f,	-rad,		0 );
-	field->AddField(-rad-0.01f,	-rad,		0,			-rad-0.01f,	0,			-rad );
-	field->AddField(-rad-0.01f,	0,			-rad,		-rad-0.01f,	rad,		0 );
-	field->AddField(-rad-0.01f,	rad,		0,			-rad-0.01f,	0,			rad );
+	// // X Planes
+	// field->AddField(-rad-0.01f,	0,			rad,		-rad-0.01f,	-rad,		0 );
+	// field->AddField(-rad-0.01f,	-rad,		0,			-rad-0.01f,	0,			-rad );
+	// field->AddField(-rad-0.01f,	0,			-rad,		-rad-0.01f,	rad,		0 );
+	// field->AddField(-rad-0.01f,	rad,		0,			-rad-0.01f,	0,			rad );
 
-	field->AddField( rad+0.01f,	0,			rad,		 rad+0.01f,	rad,		0 );
-	field->AddField( rad+0.01f,	rad,		0,			 rad+0.01f,	0,			-rad );
-	field->AddField( rad+0.01f,	0,			-rad,		 rad+0.01f,	-rad,		0 );
-	field->AddField( rad+0.01f,	-rad,		0,			 rad+0.01f,	0,			rad );
+	// field->AddField( rad+0.01f,	0,			rad,		 rad+0.01f,	rad,		0 );
+	// field->AddField( rad+0.01f,	rad,		0,			 rad+0.01f,	0,			-rad );
+	// field->AddField( rad+0.01f,	0,			-rad,		 rad+0.01f,	-rad,		0 );
+	// field->AddField( rad+0.01f,	-rad,		0,			 rad+0.01f,	0,			rad );
 
-	// Y Planes
-	field->AddField( 0,			-rad-0.01f,	-rad,		-rad,		-rad-0.01f,	0 );
-	field->AddField(-rad,		-rad-0.01f,	0,			 0,			-rad-0.01f,	rad );
-	field->AddField( 0,			-rad-0.01f,	rad,		 rad,		-rad-0.01f,	0 );
-	field->AddField( rad,		-rad-0.01f,	0,			 0,			-rad-0.01f,	-rad );
+	// // Y Planes
+	// field->AddField( 0,			-rad-0.01f,	-rad,		-rad,		-rad-0.01f,	0 );
+	// field->AddField(-rad,		-rad-0.01f,	0,			 0,			-rad-0.01f,	rad );
+	// field->AddField( 0,			-rad-0.01f,	rad,		 rad,		-rad-0.01f,	0 );
+	// field->AddField( rad,		-rad-0.01f,	0,			 0,			-rad-0.01f,	-rad );
 
-	field->AddField( 0,			rad+0.01f,	-rad,		 rad,		rad+0.01f,	0 );
-	field->AddField( rad,		rad+0.01f,	0,			 0,			rad+0.01f,	rad );
-	field->AddField( 0,			rad+0.01f,	rad,		-rad,		rad+0.01f,	0 );
-	field->AddField(-rad,		rad+0.01f,	0,			 0,			rad+0.01f,	-rad );
+	// field->AddField( 0,			rad+0.01f,	-rad,		 rad,		rad+0.01f,	0 );
+	// field->AddField( rad,		rad+0.01f,	0,			 0,			rad+0.01f,	rad );
+	// field->AddField( 0,			rad+0.01f,	rad,		-rad,		rad+0.01f,	0 );
+	// field->AddField(-rad,		rad+0.01f,	0,			 0,			rad+0.01f,	-rad );
 
 //	pSys = new ParticleSystem(fieldAccum);
 	pSim = new ParticleSimulation(field);
@@ -175,6 +177,7 @@ void Engine::Update()
 	
 	elapsedtime = (double)(current_time-last_time)/1000.0;
 	last_time = current_time;
+	dtMultCopy = dtMult;
 
 	if (elapsedtime > 0.1)
 		elapsedtime = 0.1;
